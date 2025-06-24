@@ -36,6 +36,16 @@
             margin-right: 10px;
             transform: scale(1.2); /* Make radio buttons slightly larger */
         }
+        /* Styles for correct and incorrect answers */
+        .list-group-item.correct {
+            background-color: #d4edda; /* Light green */
+            border-color: #28a745;
+        }
+        .list-group-item.incorrect {
+            background-color: #f8d7da; /* Light red */
+            border-color: #dc3545;
+        }
+
         .btn-primary {
             background-color: #0d6efd;
             border-color: #0d6efd;
@@ -127,7 +137,7 @@
     </div>
 
     <script>
-        // Funkcja do wyświetlania niestandardowego komunikatu
+        // Function to display a custom message box
         function showMessage(message) {
             const messageBox = document.getElementById('message-box');
             const messageText = document.getElementById('message-text');
@@ -217,6 +227,7 @@
 
         let currentQuestion = 0;
         let score = 0;
+        let answerSelected = false; // Flag to prevent multiple selections per question
 
         const questionEl = document.getElementById('question');
         const optionsEl = document.getElementById('options');
@@ -226,6 +237,10 @@
         const checkScoreBtn = document.getElementById('check-score-btn');
 
         function showQuestion() {
+            // Reset state for new question
+            answerSelected = false;
+            nextBtn.disabled = false; // Enable next button for new question
+
             const q = quizData[currentQuestion];
             questionEl.textContent = `Pytanie ${currentQuestion + 1}: ${q.question}`;
             optionsEl.innerHTML = '';
@@ -233,38 +248,69 @@
                 const li = document.createElement('li');
                 li.classList.add('list-group-item');
                 li.innerHTML = `<label><input type="radio" name="option" value="${index}" class="form-check-input me-2">${opt}</label>`;
+                
+                // Add event listener to each option for immediate feedback
+                li.querySelector('input[type="radio"]').addEventListener('change', (event) => {
+                    if (answerSelected) return; // Prevent multiple selections
+
+                    answerSelected = true; // Mark an answer as selected
+                    nextBtn.disabled = true; // Disable next button after selection for a moment
+
+                    const selectedValue = parseInt(event.target.value);
+                    const correctAnswerIndex = quizData[currentQuestion].answer;
+                    const allOptions = optionsEl.querySelectorAll('.list-group-item');
+
+                    // Highlight correct answer
+                    allOptions[correctAnswerIndex].classList.add('correct');
+
+                    // Highlight selected answer if incorrect
+                    if (selectedValue !== correctAnswerIndex) {
+                        allOptions[selectedValue].classList.add('incorrect');
+                    } else {
+                        score++; // Increment score only if correct
+                    }
+
+                    // Automatically move to the next question after a short delay
+                    setTimeout(() => {
+                        currentQuestion++;
+                        if (currentQuestion < quizData.length) {
+                            showQuestion();
+                        } else {
+                            // End of quiz
+                            questionEl.style.display = 'none';
+                            optionsEl.style.display = 'none';
+                            nextBtn.style.display = 'none';
+                            checkScoreBtn.style.display = 'none';
+                            resultEl.style.display = 'block';
+                            restartBtn.style.display = 'inline-block';
+                            resultEl.textContent = `Twój wynik końcowy: ${score} z ${quizData.length}`;
+                        }
+                    }, 1500); // 1.5 second delay
+                });
                 optionsEl.appendChild(li);
             });
         }
 
+        // The "Dalej" button is now primarily for manually advancing, but logic shifts to radio button change
+        // We'll modify it to serve as a 'skip' or 'confirm' button in case direct selection isn't used.
         nextBtn.addEventListener('click', () => {
             const selected = document.querySelector('input[name="option"]:checked');
             if (!selected) {
-                showMessage("Wybierz odpowiedź!"); // Użycie niestandardowego komunikatu
+                showMessage("Wybierz odpowiedź, aby kontynuować!"); // Prompts to select an answer
                 return;
             }
-            if (parseInt(selected.value) === quizData[currentQuestion].answer) {
-                score++;
-            }
-            currentQuestion++;
-            if (currentQuestion < quizData.length) {
-                showQuestion();
-            } else {
-                // Koniec quizu
-                questionEl.style.display = 'none';
-                optionsEl.style.display = 'none';
-                nextBtn.style.display = 'none';
-                checkScoreBtn.style.display = 'none'; // Ukryj przycisk sprawdź wynik na koniec quizu
-                resultEl.style.display = 'block';
-                restartBtn.style.display = 'inline-block';
-                resultEl.textContent = `Twój wynik końcowy: ${score} z ${quizData.length}`;
-            }
+            // If an answer is already selected, let the change event handle the logic
+            // This button might be redundant if auto-advance is preferred
+            // However, we can use it to force advancement if somehow the change event fails or is not desired for auto-advance
+            // For now, it will act as a fallback or a manual confirmation.
+            // Since auto-advance is implemented on radio button change, this button might behave differently.
+            // To simplify, we remove its auto-advance function after selection for now.
+            // The auto-advance is handled by the `change` event listener on radio buttons.
         });
 
-        // Dodano event listener dla checkScoreBtn tutaj, żeby był w odpowiednim miejscu
         checkScoreBtn.addEventListener('click', () => {
             resultEl.style.display = 'block';
-            resultEl.textContent = `Aktualny wynik: ${score} z ${currentQuestion}`; // Pokazuje wynik z dotychczasowych pytań
+            resultEl.textContent = `Aktualny wynik: ${score} z ${currentQuestion}`;
         });
 
         restartBtn.addEventListener('click', () => {
@@ -273,7 +319,7 @@
             questionEl.style.display = '';
             optionsEl.style.display = '';
             nextBtn.style.display = 'inline-block';
-            checkScoreBtn.style.display = 'inline-block'; // Pokaż ponownie przycisk sprawdź wynik
+            checkScoreBtn.style.display = 'inline-block';
             resultEl.style.display = 'none';
             restartBtn.style.display = 'none';
             showQuestion();
